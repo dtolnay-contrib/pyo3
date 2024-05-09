@@ -1,6 +1,7 @@
 #[cfg(feature = "experimental-inspect")]
 use crate::inspect::types::TypeInfo;
 use crate::types::any::PyAnyMethods;
+use crate::types::PyBytes;
 use crate::{
     exceptions, ffi, Bound, FromPyObject, IntoPy, PyAny, PyErr, PyObject, PyResult, Python,
     ToPyObject,
@@ -142,7 +143,6 @@ macro_rules! int_fits_c_long {
 }
 
 int_fits_c_long!(i8);
-int_fits_c_long!(u8);
 int_fits_c_long!(i16);
 int_fits_c_long!(u16);
 int_fits_c_long!(i32);
@@ -366,6 +366,39 @@ nonzero_int_impl!(NonZeroU32, u32);
 nonzero_int_impl!(NonZeroU64, u64);
 nonzero_int_impl!(NonZeroU128, u128);
 nonzero_int_impl!(NonZeroUsize, usize);
+
+impl ToPyObject for u8 {
+    fn to_object(&self, py: Python<'_>) -> PyObject {
+        unsafe { PyObject::from_owned_ptr(py, ffi::PyLong_FromLong(*self as c_long)) }
+    }
+
+    fn slice_to_object(bytes: &[Self], py: Python<'_>) -> PyObject {
+        PyBytes::new_bound(py, bytes).into()
+    }
+}
+
+impl IntoPy<PyObject> for u8 {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        unsafe { PyObject::from_owned_ptr(py, ffi::PyLong_FromLong(self as c_long)) }
+    }
+
+    #[cfg(feature = "experimental-inspect")]
+    fn type_output() -> TypeInfo {
+        TypeInfo::builtin("int")
+    }
+}
+
+impl<'py> FromPyObject<'py> for u8 {
+    fn extract_bound(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let val: c_long = extract_int!(obj, -1, ffi::PyLong_AsLong)?;
+        u8::try_from(val).map_err(|e| exceptions::PyOverflowError::new_err(e.to_string()))
+    }
+
+    #[cfg(feature = "experimental-inspect")]
+    fn type_input() -> TypeInfo {
+        Self::type_output()
+    }
+}
 
 #[cfg(test)]
 mod test_128bit_integers {

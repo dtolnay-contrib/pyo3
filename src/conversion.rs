@@ -4,6 +4,7 @@ use crate::err::{self, PyDowncastError, PyResult};
 use crate::inspect::types::TypeInfo;
 use crate::pyclass::boolean_struct::False;
 use crate::types::any::PyAnyMethods;
+use crate::types::list::new_from_iter;
 use crate::types::PyTuple;
 use crate::{
     ffi, gil, Borrowed, Bound, Py, PyAny, PyClass, PyNativeType, PyObject, PyRef, PyRefMut, Python,
@@ -66,6 +67,16 @@ pub unsafe trait AsPyPointer {
 pub trait ToPyObject {
     /// Converts self into a Python object.
     fn to_object(&self, py: Python<'_>) -> PyObject;
+
+    /// ...
+    fn slice_to_object(slice: &[Self], py: Python<'_>) -> PyObject
+    where
+        Self: Sized,
+    {
+        let mut iter = slice.iter().map(|e| e.to_object(py));
+        let list = new_from_iter(py, &mut iter);
+        list.into()
+    }
 }
 
 /// Defines a conversion from a Rust type to a Python object.
